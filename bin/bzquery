@@ -1,0 +1,294 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import logging
+import commands
+import re
+import shutil
+import smtplib
+from email.mime.text import MIMEText
+from pymongo import MongoClient
+
+
+class QueryResult(object):
+    """Query bugs for specify project
+    """
+    def __init__(self, project_name, condition):
+        self.project_name = project_name
+        self.condition = condition
+        self.text = ""
+        self.markdown = ""
+        self.html = ""
+
+    @staticmethod
+    def login():
+        s = commands.getoutput('bugzilla new')
+        if re.search('Fault 410:', s) or not \
+                os.path.exists(os.path.expanduser('~') + "/.bugzillatoken"):
+            logging.error("Please login manually first: bugzilla login")
+            sys.exit(1)
+
+    def __uniq(self, result):
+        """omit repeated lines
+        """
+        d = dict()
+        for v in result.values():
+            l = v.split('[^]')[1:]
+            for i in l:
+                # bug id
+                key = i.split("[#_#]")[0]
+                if key not in d:
+                    d[key] = [i]
+                else:
+                    continue
+        return d
+
+    def __sort_out(self, result):
+        """sort result
+        """
+        # sort by product
+        d = dict()
+        for v in result.values():
+            for i in v:
+                # print "** %s **" % i
+                # product name
+                key = i.split("[#_#]")[6]
+                # whiteborad
+                if i.split("[#_#]")[8] == "V2V" or\
+                   i.split("[#_#]")[8] == "P2V":
+                    continue
+                if key not in d:
+                    d[key] = [i]
+                else:
+                    d[key].append(i)
+        return d
+
+    def bzquery(self):
+        """query bugs according to request
+
+        Return: result of json format
+        """
+        result = dict()
+        head = "bugzilla query "
+        tail = " --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags_requestee}[#_#]%{status_whiteboard}[#_#]\""
+
+        for component, condition in self.condition.items():
+            # search qa_ack?
+            cmd = head + condition + " --flag=qa_ack? " + tail
+            logging.info("{0}".format(cmd))
+            s = commands.getoutput(cmd)
+            # search needinfo?
+            cmd = head + condition + " --flag=needinfo? " + tail
+            logging.info("{0}".format(cmd))
+            s += commands.getoutput(cmd)
+
+            # remove duplicate bugs
+            if s:
+                l = s.split('[^]')[1:]
+                index = 0
+                for line in l:
+                    l[index] = line.strip()
+                    index += 1
+                # omit repeated lines
+                l = list(set(l))
+                s = "[^]" + "[^]".join(l)
+
+            result[component] = s
+
+        uniq_result = self.__uniq(result)
+        result = self.__sort_out(uniq_result)
+        return result
+
+    def to_text(self, result, filename):
+        with open(filename, 'w+') as fd:
+            for product, bugs in result.items():
+                fd.write(product+'\n')
+                for index, line in enumerate(bugs):
+                    temp = line.split('[#_#]')
+                    # remove Priority/Severity
+                    del temp[3]
+                    # remove product name
+                    del temp[5]
+                    # for mutiple needinfo requestee
+                    if temp[-1]:
+                        temp[-1] = ",".join(temp[-1].split(' ')[1:])
+                    bugs[index] = " ".join(temp)
+
+                fd.write('\n'.join(bugs)+'\n')
+
+    def to_markdown(self):
+        pass
+
+    def to_html(self, text_file, html_file):
+        """
+        """
+        head = ('<h1><a href="https://bugzilla.redhat.com/buglist.cgi?quicksearch={bug_id}">'
+                '{name}</a></h1>\n')
+        body = ('<p><a href="https://bugzilla.redhat.com/show_bug.cgi?id={bug_id}">'
+                '#{bug_id}</a> {summary} </p>\n')
+        color = '<font color=red>{0}</font>'
+        d = dict()
+        key = ''
+
+        with open(text_file, 'r') as fd:
+            for line in fd:
+                if not re.match("^[0-9]", line):
+                    key = line
+                    d[key] = []
+                else:
+                    d[key].append(line)
+
+        for key, value in d.items():
+            content = list()
+            bug_id = ''
+            for i in value:
+                l = i.split(" ")
+                bug_id += l[0] + "%2C"
+
+                l[1] += "&nbsp"*3
+                l[2] += "&nbsp"*3
+                # highlight urgent,high priority/severity
+                if 'urgent' in l[1] or 'high' in l[1]:
+                    l[1] = color.format(l[1])
+                # highlight needinfo requestee
+                if l[-1]:
+                    l[-1] = color.format(l[-1].strip())
+
+                content.append(body.format(bug_id=l[0],
+                                           summary=' '.join(l[1:])))
+
+            content.insert(0, head.format(bug_id=bug_id, name=key.strip()))
+            d[key] = content
+
+        with open(html_file, 'w+') as fd:
+            if 'New update\n' in d:
+                [fd.write(line) for line in d['New update\n']]
+            for k in sorted(d.keys(), reverse=True):
+                if k != "New update\n":
+                    [fd.write(line) for line in d[k]]
+
+
+def log_initialize(filename):
+    """Initialize logging moudle
+
+    Parameter: @filename, log file name
+    Return: None
+    """
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                        datefmt='%a, %d %b %Y %H:%M:%S',
+                        filename=filename,
+                        filemode='w')
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
+
+
+def send_mail(mail_list, path):
+    mail_server = "smtp.corp.redhat.com"
+    mail_from = "wshi@redhat.com"
+
+    # send daily mail.html
+    for (k, v) in mail_list.items():
+            if not os.path.exists(path+k):
+                continue
+            filesize = os.stat(path+k).st_size
+            # do not send empty file
+            if filesize < 5:
+                continue
+
+            fd = open(path+k, "r")
+            content = fd.read()
+            fd.close()
+
+            msg = MIMEText(content, _subtype='html', _charset='utf-8')
+            name = k.split(".")[0]
+            msg["Subject"] = "{0} bug list for qa_ack?, needinfo".format(name)
+            msg["From"] = mail_from
+            msg["To"] = ",".join(v)
+
+            try:
+                server = smtplib.SMTP()
+                server.connect(mail_server)
+                server.sendmail(mail_from, v, msg.as_string())
+                server.close()
+            except Exception, e:
+                print str(e)
+
+
+def main():
+    projects = dict()
+    mail_list = dict()
+    try:
+        mongodb = "mongodb://meteor:redhat@10.66.11.225:27017/meteordb"
+        client = MongoClient(mongodb)
+        db = client.meteordb
+        cursor = db.bzquery.find()
+        for document in cursor:
+            project_name = str(document["project_name"])
+            email_addr = str(document["maillist"])
+            querys = dict()
+            for query in document["query"]:
+                if query is None:
+                    continue
+                queryname = str(query["queryname"])
+                querycondition = str(query["querycondition"])
+                querys[queryname] = querycondition
+            projects[project_name] = querys
+            mail_list[project_name+".html"] = [email_addr]
+    except Exception, ex:
+        print Exception, ":", ex
+        sys.exit(1)
+
+    log_initialize("run.log")
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+
+    QueryResult.login()
+    for project_name, condition in projects.items():
+        new_file = "logs/%s_new" % project_name
+        old_file = "logs/%s_old" % project_name
+        text_file = "logs/%s.mail" % project_name
+        html_file = "logs/%s.html" % project_name
+
+        result = QueryResult(project_name, condition)
+        output = result.bzquery()
+
+        # save old bug file
+        if os.path.exists(new_file):
+            shutil.copyfile(new_file, old_file)
+
+        # write to text, create xxx_new file
+        result.to_text(output, new_file)
+
+        new = ['New update\n']
+        with open(new_file, 'r') as fd:
+            bugs = fd.readlines()
+
+        # find new bugs by difference from new and old file
+        if os.path.exists(old_file):
+            with open(old_file, 'r') as fd:
+                old_bugs = fd.readlines()
+            for i in bugs:
+                if i not in old_bugs and re.match('^[0-9]', i):
+                    new.append(i)
+
+        # re-write content to file while has new bug
+        with open(text_file, 'w+') as fd:
+            if len(new) > 1:
+                fd.write("".join(new))
+            fd.write("".join(bugs))
+
+        # convert text to html
+        result.to_html(text_file, html_file)
+
+    # send mail
+    send_mail(mail_list, "logs/")
+
+
+if __name__ == "__main__":
+    main()
