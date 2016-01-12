@@ -55,6 +55,10 @@ pytest-3
 
 
 
+%{_bindir}/bugzilla
+%{_bindir}/bzquery
+%{_mandir}/man1/bugzilla.1.gz
+
 %files -n python3-bugzilla
 %doc COPYING README.md NEWS.md
 %{python3_sitelib}/*
