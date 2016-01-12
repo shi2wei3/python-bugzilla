@@ -130,6 +130,7 @@ setup(
     ],
     packages=['bugzilla'],
     entry_points={'console_scripts': ['bugzilla = bugzilla._cli:cli']},
+    scripts=['bin/bzquery'],
     data_files=[('share/man/man1', ['bugzilla.1'])],
 
     install_requires=_parse_requirements("requirements.txt"),
