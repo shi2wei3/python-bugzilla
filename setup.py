@@ -147,6 +147,7 @@ setup(
     packages=['bugzilla'],
     data_files=[],
     entry_points={'console_scripts': ['bugzilla = bugzilla._cli:cli']},
+    scripts=['bin/bzquery'],
 
     install_requires=_parse_requirements("requirements.txt"),
     tests_require=_parse_requirements("test-requirements.txt"),

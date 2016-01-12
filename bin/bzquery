@@ -7,6 +7,7 @@ import commands
 import re
 import shutil
 import smtplib
+import json
 from email.mime.text import MIMEText
 from pymongo import MongoClient
 
@@ -221,28 +222,63 @@ def send_mail(mail_list, path):
 
 
 def main():
+    workspace = os.getcwd()
+    json_file = '%s/jenkins-jobs-data/bzquery/product_para.json' \
+        % os.environ['WORKSPACE']
     projects = dict()
     mail_list = dict()
+    conditions = list()
+    with open(json_file) as infile:
+        data = infile.read()
+    conditions_backup = json.loads(data)
     try:
-        mongodb = "mongodb://meteor:redhat@10.66.11.225:27017/meteordb"
+        mongodb = "mongodb://meteor:redhat@10.66.10.22:27017/meteordb"
         client = MongoClient(mongodb)
         db = client.meteordb
         cursor = db.bzquery.find()
         for document in cursor:
-            project_name = str(document["project_name"])
-            email_addr = str(document["maillist"])
-            querys = dict()
-            for query in document["query"]:
-                if query is None:
-                    continue
-                queryname = str(query["queryname"])
-                querycondition = str(query["querycondition"])
-                querys[queryname] = querycondition
-            projects[project_name] = querys
-            mail_list[project_name+".html"] = [email_addr]
+            conditions.append(document)
+        for dict_db in conditions:
+            found = 0
+            diff = 0
+            for dict_backup in conditions_backup:
+                if dict_backup['project_name'] == dict_db['project_name']:
+                    found = 1
+                    break
+            if found == 0:
+                diff = 1
+            if cmp(dict_backup['query'], dict_db['query']) != 0:
+                diff = 1
+            if diff == 1:
+                print "Found changes under project: " + \
+                    dict_backup['project_name']
+                os.chdir(os.path.dirname(json_file))
+                os.system('git checkout -b master -t origin/master')
+                with open(json_file, 'w') as outfile:
+                    json.dump(conditions, outfile, sort_keys=True, indent=4)
+                os.system('git add %s' % os.path.basename(json_file))
+                os.system('git commit -m "update %s"'
+                          % os.path.basename(json_file))
+                os.system('git push')
+                break
     except Exception, ex:
         print Exception, ":", ex
-        sys.exit(1)
+        conditions = conditions_backup
+
+    os.chdir(workspace)
+
+    for document in conditions:
+        project_name = str(document["project_name"])
+        email_addr = str(document["maillist"])
+        querys = dict()
+        for query in document["query"]:
+            if query is None:
+                continue
+            queryname = str(query["queryname"])
+            querycondition = str(query["querycondition"])
+            querys[queryname] = querycondition
+        projects[project_name] = querys
+        mail_list[project_name+".html"] = [email_addr]
 
     log_initialize("run.log")
     if not os.path.exists('logs'):

@@ -146,6 +146,10 @@ pytest-3
 %{python2_sitelib}/*
 %endif
 
+%{_bindir}/bugzilla
+%{_bindir}/bzquery
+%{_mandir}/man1/bugzilla.1.gz
+
 %if %{with python3}
 %files -n python3-bugzilla
 %doc COPYING README.md NEWS.md
