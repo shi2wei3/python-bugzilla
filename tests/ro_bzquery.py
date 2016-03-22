@@ -18,12 +18,8 @@ import bugzilla
 
 import tests
 
-if tests.REDHAT_URL == "https://bugzilla.redhat.com/xmlrpc.cgi":
-    cf = os.path.expanduser("~/.bugzillacookies")
-    tf = os.path.expanduser("~/.bugzillatoken")
-else:
-    cf = os.path.expanduser("~/.bugzillacookies_partner")
-    tf = os.path.expanduser("~/.bugzillatoken_partner")
+cf = os.path.expanduser("~/.bugzillacookies")
+tf = os.path.expanduser("~/.bugzillatoken")
 
 
 class RHPartnerTest(unittest.TestCase):
