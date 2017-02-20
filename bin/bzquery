@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# bugzilla query --product='Red Hat Enterprise Linux 7' --component=kernel --sub-component='Virtualization Xen' --field ext_type_description='Red Hat Customer Portal''
+# bugzilla query -b 1007328 --outputformat "%{id} --- %{external_bugs}"
 
 import os
 import sys
@@ -72,7 +74,7 @@ class QueryResult(object):
         """
         result = dict()
         head = "bugzilla query "
-        tail = " --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags_requestee}[#_#]%{status_whiteboard}[#_#]\""
+        tail = " --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags}[#_#]%{status_whiteboard}[#_#]\""
 
         for component, condition in self.condition.items():
             # search qa_ack?
