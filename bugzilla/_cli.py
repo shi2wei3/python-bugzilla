@@ -675,7 +675,8 @@ def _format_output(bz, opt, buglist):
             for f in getattr(b, "flags", []):
                 requestee = f.get('requestee', "")
                 if fieldname == "flags":
-                    requestee = ""
+#                    requestee = ""
+                    pass
                 if fieldname == "flags_requestee":
                     if requestee == "":
                         continue
