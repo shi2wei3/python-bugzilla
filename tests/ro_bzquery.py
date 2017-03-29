@@ -41,8 +41,8 @@ class RHPartnerTest(unittest.TestCase):
 
 class RHTest(RHPartnerTest):
     test0 = lambda s: RHPartnerTest._test3Query(s,
-"--product='Red Hat Enterprise Linux 7' --component=libguestfs --bug_status=CLOSED  --flag=needinfo? --bug_id=1076478 --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags_requestee}[#_#]%{status_whiteboard}[#_#]\"",
-"[^]1076478[#_#]libguestfs[#_#][#_#]unspecified/unspecified[#_#]CLOSED[#_#]FTBFS: libguestfs-1.22.6-15.el7[#_#]Red Hat Enterprise Linux 7[#_#]igor.zubkov@gmail.com,igor.zubkov@gmail.com[#_#][#_#]")
+"--product='Red Hat Enterprise Linux 7' --component=libguestfs --bug_status=CLOSED --flag=needinfo? --bug_id=1076478 --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags}[#_#]%{status_whiteboard}[#_#]\"",
+"[^]1076478[#_#]libguestfs[#_#][#_#]unspecified/unspecified[#_#]CLOSED[#_#]FTBFS: libguestfs-1.22.6-15.el7[#_#]Red Hat Enterprise Linux 7[#_#]needinfo?igor.zubkov@gmail.com,needinfo?igor.zubkov@gmail.com,rhel-7.1.0?,pm_ack+,devel_ack?,qa_ack?[#_#][#_#]")
     test1 = lambda s:RHPartnerTest._test3Query(s,
 "--product='Red Hat Enterprise Linux 7' --component=kernel --bug_status=CLOSED --qa_contact=virt-bugs@redhat.com --sub-component='Virtualization Xen' --flag=qa_ack? --bug_id=1167010 --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags_requestee}[#_#]%{status_whiteboard}[#_#]\"",
-"[^]1167010[#_#]kernel[#_#]Virtualization Xen[#_#]unspecified/high[#_#]CLOSED[#_#]Known mm bug on Xen PV instances - vsftpd fails with 500 OOPS munmap[#_#]Red Hat Enterprise Linux 7[#_#][#_#][#_#]")
+"[^]1167010[#_#]kernel[#_#][#_#]unspecified/high[#_#]CLOSED[#_#]Known mm bug on Xen PV instances - vsftpd fails with 500 OOPS munmap[#_#]Red Hat Enterprise Linux 7[#_#][#_#][#_#]")
