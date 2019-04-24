@@ -28,7 +28,7 @@ class QueryResult(object):
     def login():
         s = commands.getoutput('bugzilla new')
         if re.search('Fault 410:', s) or not \
-                os.path.exists(os.path.expanduser('~') + "/.bugzillatoken"):
+                os.path.exists(os.path.expanduser('~') + "/.config/python-bugzilla/bugzillarc"):
             logging.error("Please login manually first: bugzilla login")
             sys.exit(1)
 
