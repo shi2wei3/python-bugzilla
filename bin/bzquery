@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# bugzilla query --product='Red Hat Enterprise Linux 7' --component=kernel --sub-component='Virtualization Xen' --field ext_type_description='Red Hat Customer Portal''
-# bugzilla query -b 1007328 --outputformat "%{id} --- %{external_bugs}"
 
 import os
 import sys
 import logging
-import commands
+import subprocess
 import re
 import shutil
 import smtplib
@@ -26,7 +24,7 @@ class QueryResult(object):
 
     @staticmethod
     def login():
-        s = commands.getoutput('bugzilla new')
+        s = subprocess.getoutput('bugzilla new')
         if re.search('Fault 410:', s) or not \
                 os.path.exists(os.path.expanduser('~') + "/.config/python-bugzilla/bugzillarc"):
             logging.error("Please login manually first: bugzilla login")
@@ -36,7 +34,7 @@ class QueryResult(object):
         """omit repeated lines
         """
         d = dict()
-        for v in result.values():
+        for v in list(result.values()):
             l = v.split('[^]')[1:]
             for i in l:
                 # bug id
@@ -52,7 +50,7 @@ class QueryResult(object):
         """
         # sort by product
         d = dict()
-        for v in result.values():
+        for v in list(result.values()):
             for i in v:
                 # print "** %s **" % i
                 # product name
@@ -76,15 +74,15 @@ class QueryResult(object):
         head = "bugzilla query "
         tail = " --outputformat \"[^]%{bug_id}[#_#]%{component}[#_#]%{sub_component}[#_#]%{priority}/%{bug_severity}[#_#]%{status}[#_#]%{short_desc}[#_#]%{product}[#_#]%{flags}[#_#]%{status_whiteboard}[#_#]\""
 
-        for component, condition in self.condition.items():
+        for component, condition in list(self.condition.items()):
             # search qa_ack?
             cmd = head + condition + " --flag=qa_ack? " + tail
             logging.info("{0}".format(cmd))
-            s = commands.getoutput(cmd)
+            s = subprocess.getoutput(cmd)
             # search needinfo?
             cmd = head + condition + " --flag=needinfo? " + tail
             logging.info("{0}".format(cmd))
-            s += commands.getoutput(cmd)
+            s += subprocess.getoutput(cmd)
 
             # remove duplicate bugs
             if s:
@@ -105,8 +103,8 @@ class QueryResult(object):
 
     def to_text(self, result, filename):
         with open(filename, 'w+') as fd:
-            for product, bugs in result.items():
-                fd.write(product+'\n')
+            for product, bugs in list(result.items()):
+                fd.write(product + '\n')
                 for index, line in enumerate(bugs):
                     temp = line.split('[#_#]')
                     # remove Priority/Severity
@@ -118,7 +116,7 @@ class QueryResult(object):
                         temp[-1] = ",".join(temp[-1].split(' ')[1:])
                     bugs[index] = " ".join(temp)
 
-                fd.write('\n'.join(bugs)+'\n')
+                fd.write('\n'.join(bugs) + '\n')
 
     def to_markdown(self):
         pass
@@ -126,10 +124,12 @@ class QueryResult(object):
     def to_html(self, text_file, html_file):
         """
         """
-        head = ('<h1><a href="https://bugzilla.redhat.com/buglist.cgi?quicksearch={bug_id}">'
-                '{name}</a></h1>\n')
-        body = ('<p><a href="https://bugzilla.redhat.com/show_bug.cgi?id={bug_id}">'
-                '#{bug_id}</a> {summary} </p>\n')
+        head = (
+            '<h1><a href="https://bugzilla.redhat.com/buglist.cgi?quicksearch={bug_id}">'
+            '{name}</a></h1>\n')
+        body = (
+            '<p><a href="https://bugzilla.redhat.com/show_bug.cgi?id={bug_id}">'
+            '#{bug_id}</a> {summary} </p>\n')
         color = '<font color=red>{0}</font>'
         d = dict()
         key = ''
@@ -142,15 +142,15 @@ class QueryResult(object):
                 else:
                     d[key].append(line)
 
-        for key, value in d.items():
+        for key, value in list(d.items()):
             content = list()
             bug_id = ''
             for i in value:
                 l = i.split(" ")
                 bug_id += l[0] + "%2C"
 
-                l[1] += "&nbsp"*3
-                l[2] += "&nbsp"*3
+                l[1] += "&nbsp" * 3
+                l[2] += "&nbsp" * 3
                 # highlight urgent,high priority/severity
                 if 'urgent' in l[1] or 'high' in l[1]:
                     l[1] = color.format(l[1])
@@ -158,8 +158,8 @@ class QueryResult(object):
                 if l[-1]:
                     l[-1] = color.format(l[-1].strip())
 
-                content.append(body.format(bug_id=l[0],
-                                           summary=' '.join(l[1:])))
+                content.append(
+                    body.format(bug_id=l[0], summary=' '.join(l[1:])))
 
             content.insert(0, head.format(bug_id=bug_id, name=key.strip()))
             d[key] = content
@@ -167,7 +167,7 @@ class QueryResult(object):
         with open(html_file, 'w+') as fd:
             if 'New update\n' in d:
                 [fd.write(line) for line in d['New update\n']]
-            for k in sorted(d.keys(), reverse=True):
+            for k in sorted(list(d.keys()), reverse=True):
                 if k != "New update\n":
                     [fd.write(line) for line in d[k]]
 
@@ -178,11 +178,12 @@ def log_initialize(filename):
     Parameter: @filename, log file name
     Return: None
     """
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                        datefmt='%a, %d %b %Y %H:%M:%S',
-                        filename=filename,
-                        filemode='w')
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+        datefmt='%a, %d %b %Y %H:%M:%S',
+        filename=filename,
+        filemode='w')
 
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
@@ -196,31 +197,31 @@ def send_mail(mail_list, path):
     mail_from = "wshi@redhat.com"
 
     # send daily mail.html
-    for (k, v) in mail_list.items():
-            if not os.path.exists(path+k):
-                continue
-            filesize = os.stat(path+k).st_size
-            # do not send empty file
-            if filesize < 5:
-                continue
+    for (k, v) in list(mail_list.items()):
+        if not os.path.exists(path + k):
+            continue
+        filesize = os.stat(path + k).st_size
+        # do not send empty file
+        if filesize < 5:
+            continue
 
-            fd = open(path+k, "r")
-            content = fd.read()
-            fd.close()
+        fd = open(path + k, "r")
+        content = fd.read()
+        fd.close()
 
-            msg = MIMEText(content, _subtype='html', _charset='utf-8')
-            name = k.split(".")[0]
-            msg["Subject"] = "{0} bug list for qa_ack?, needinfo".format(name)
-            msg["From"] = mail_from
-            msg["To"] = ",".join(v)
+        msg = MIMEText(content, _subtype='html', _charset='utf-8')
+        name = k.split(".")[0]
+        msg["Subject"] = "{0} bug list for qa_ack?, needinfo".format(name)
+        msg["From"] = mail_from
+        msg["To"] = ",".join(v)
 
-            try:
-                server = smtplib.SMTP()
-                server.connect(mail_server)
-                server.sendmail(mail_from, v, msg.as_string())
-                server.close()
-            except Exception, e:
-                print str(e)
+        try:
+            server = smtplib.SMTP()
+            server.connect(mail_server)
+            server.sendmail(mail_from, v, msg.as_string())
+            server.close()
+        except Exception as e:
+            print(str(e))
 
 
 def main():
@@ -249,22 +250,22 @@ def main():
                     break
             if found == 0:
                 diff = 1
-            if cmp(dict_backup['query'], dict_db['query']) != 0:
+            if dict_backup['query'] != dict_db['query']:
                 diff = 1
             if diff == 1:
-                print "Found changes under project: " + \
-                    dict_backup['project_name']
+                print("Found changes under project: " +
+                      dict_backup['project_name'])
                 os.chdir(os.path.dirname(json_file))
                 os.system('git checkout -b master -t origin/master')
                 with open(json_file, 'w') as outfile:
                     json.dump(conditions, outfile, sort_keys=True, indent=4)
                 os.system('git add %s' % os.path.basename(json_file))
-                os.system('git commit -m "update %s"'
-                          % os.path.basename(json_file))
+                os.system('git commit -m "update %s"' %
+                          os.path.basename(json_file))
                 os.system('git push')
                 break
-    except Exception, ex:
-        print Exception, ":", ex
+    except Exception as ex:
+        print(Exception, ":", ex)
         conditions = conditions_backup
 
     os.chdir(workspace)
@@ -280,14 +281,14 @@ def main():
             querycondition = str(query["querycondition"])
             querys[queryname] = querycondition
         projects[project_name] = querys
-        mail_list[project_name+".html"] = [email_addr]
+        mail_list[project_name + ".html"] = [email_addr]
 
     log_initialize("run.log")
     if not os.path.exists('logs'):
         os.mkdir('logs')
 
     QueryResult.login()
-    for project_name, condition in projects.items():
+    for project_name, condition in list(projects.items()):
         new_file = "logs/%s_new" % project_name
         old_file = "logs/%s_old" % project_name
         text_file = "logs/%s.mail" % project_name
