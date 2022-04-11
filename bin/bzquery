@@ -235,7 +235,7 @@ def main():
         data = infile.read()
     conditions_backup = json.loads(data)
     try:
-        mongodb = "mongodb://meteor:redhat@10.66.10.22:27017/meteordb"
+        mongodb = "mongodb://meteor:redhat@10.66.148.42:27017/meteordb"
         client = MongoClient(mongodb)
         db = client.meteordb
         cursor = db.bzquery.find()
